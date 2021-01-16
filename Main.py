@@ -99,7 +99,7 @@ class FlashingThread(threading.Thread):
             print("\nFirmware successfully flashed. Unplug/replug or reset device \nto switch back to normal boot "
                   "mode.")
 
-            printQRCode('192.168.3.130', ''.join(map(lambda x: '%02x' % x, mac)))
+            printQRCode(self._config.printer_ip, ''.join(map(lambda x: '%02x' % x, mac)))
         except SerialException as e:
             self._parent.report_error(e.strerror)
             raise e
@@ -112,11 +112,12 @@ class FlashingThread(threading.Thread):
 # DTO between GUI and flashing thread
 class FlashConfig:
     def __init__(self):
-        self.baud = 115200
-        self.erase_before_flash = False
-        self.mode = "dio"
+        self.baud = 921600
+        self.erase_before_flash = True
+        self.mode = "dout"
         self.firmware_path = None
         self.port = None
+        self.printer_ip = '192.168.0.123'
 
     @classmethod
     def load(cls, file_path):
@@ -128,6 +129,7 @@ class FlashConfig:
             conf.baud = data['baud']
             conf.mode = data['mode']
             conf.erase_before_flash = data['erase']
+            conf.printer_ip = data['printer_ip']
         return conf
 
     def safe(self, file_path):
@@ -136,6 +138,7 @@ class FlashConfig:
             'baud': self.baud,
             'mode': self.mode,
             'erase': self.erase_before_flash,
+            'printer_ip': self.printer_ip,
         }
         with open(file_path, 'w') as f:
             json.dump(data, f)
@@ -201,11 +204,15 @@ class NodeMcuFlasher(wx.Frame):
         def on_pick_file(event):
             self._config.firmware_path = event.GetPath().replace("'", "")
 
+        def on_set_ip(event):
+            text = event.GetEventObject()
+            self._config.printer_ip = text.GetValue()
+
         panel = wx.Panel(self)
 
         hbox = wx.BoxSizer(wx.HORIZONTAL)
 
-        fgs = wx.FlexGridSizer(7, 2, 10, 10)
+        fgs = wx.FlexGridSizer(8, 2, 10, 10)
 
         self.choice = wx.Choice(panel, choices=self._get_serial_ports())
         self.choice.Bind(wx.EVT_CHOICE, on_select_port)
@@ -218,6 +225,9 @@ class NodeMcuFlasher(wx.Frame):
 
         file_picker = wx.FilePickerCtrl(panel, style=wx.FLP_USE_TEXTCTRL)
         file_picker.Bind(wx.EVT_FILEPICKER_CHANGED, on_pick_file)
+
+        ip_edit = wx.TextCtrl(panel, value=self._config.printer_ip)
+        ip_edit.Bind(wx.EVT_TEXT, on_set_ip, ip_edit)
 
         serial_boxsizer = wx.BoxSizer(wx.HORIZONTAL)
         serial_boxsizer.Add(self.choice, 1, wx.EXPAND)
@@ -281,6 +291,7 @@ class NodeMcuFlasher(wx.Frame):
 
         port_label = wx.StaticText(panel, label="Serial port")
         file_label = wx.StaticText(panel, label="NodeMCU firmware")
+        ip_label = wx.StaticText(panel, label="Printer IP")
         baud_label = wx.StaticText(panel, label="Baud rate")
         flashmode_label = wx.StaticText(panel, label="Flash mode")
 
@@ -309,12 +320,13 @@ class NodeMcuFlasher(wx.Frame):
         fgs.AddMany([
                     port_label, (serial_boxsizer, 1, wx.EXPAND),
                     file_label, (file_picker, 1, wx.EXPAND),
+                    ip_label, ip_edit,
                     baud_label, baud_boxsizer,
                     flashmode_label_boxsizer, flashmode_boxsizer,
                     erase_label, erase_boxsizer,
                     (wx.StaticText(panel, label="")), (button, 1, wx.EXPAND),
                     (console_label, 1, wx.EXPAND), (self.console_ctrl, 1, wx.EXPAND)])
-        fgs.AddGrowableRow(6, 1)
+        fgs.AddGrowableRow(7, 1)
         fgs.AddGrowableCol(1, 1)
         hbox.Add(fgs, proportion=2, flag=wx.ALL | wx.EXPAND, border=15)
         panel.SetSizer(hbox)
@@ -435,18 +447,6 @@ class App(wx.App, wx.lib.mixins.inspection.InspectionMixin):
         return True
 
 
-# ---------------------------------------------------------------------------
-def main():
-    app = App(False)
-    app.MainLoop()
-# ---------------------------------------------------------------------------
-
-
-if __name__ == '__main__':
-    __name__ = 'Main'
-    main()
-
-
 def printQRCode(printer_ip, device_mac):
     client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     client.settimeout(3)
@@ -467,3 +467,16 @@ def printQRCode(printer_ip, device_mac):
         print("Print QR Code successfully")
     except:
         print("Failed to connect printer")
+
+
+# ---------------------------------------------------------------------------
+def main():
+    app = App(False)
+    app.MainLoop()
+# ---------------------------------------------------------------------------
+
+
+if __name__ == '__main__':
+    __name__ = 'Main'
+    main()
+
