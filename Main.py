@@ -89,6 +89,7 @@ class FlashingThread(threading.Thread):
 
             if self._config.erase_before_flash:
                 command.append("--erase-all")
+            command.append("--no-compress")
 
             print("Command: esptool.py %s\n" % " ".join(command))
 
@@ -464,9 +465,9 @@ def printQRCode(printer_ip, device_mac):
 
         client.send(str.encode())
         client.close()
-        print("Print QR Code successfully")
+        print("Print QR Code successfully.")
     except:
-        print("Failed to connect printer")
+        print("Failed to connect printer.")
 
 
 # ---------------------------------------------------------------------------
