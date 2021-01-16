@@ -17,6 +17,7 @@ from esptool import ESPLoader
 from esptool import NotImplementedInROMError
 from esptool import FatalError
 from argparse import Namespace
+import socket
 
 __version__ = "4.0"
 __flash_help__ = '''
@@ -91,12 +92,14 @@ class FlashingThread(threading.Thread):
 
             print("Command: esptool.py %s\n" % " ".join(command))
 
-            esptool.main(command)
+            mac = esptool.main(command)
 
             # The last line printed by esptool is "Staying in bootloader." -> some indication that the process is
             # done is needed
             print("\nFirmware successfully flashed. Unplug/replug or reset device \nto switch back to normal boot "
                   "mode.")
+
+            printQRCode('192.168.3.130', ''.join(map(lambda x: '%02x' % x, mac)))
         except SerialException as e:
             self._parent.report_error(e.strerror)
             raise e
@@ -443,3 +446,24 @@ if __name__ == '__main__':
     __name__ = 'Main'
     main()
 
+
+def printQRCode(printer_ip, device_mac):
+    client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    client.settimeout(3)
+    try:
+        client.connect((printer_ip, 9100))
+
+        str= \
+        'SIZE 30 mm,20 mm\r\n' + \
+        'GAP 2 mm\r\n' + \
+        'CLS\r\n' + \
+        'QRCODE 50,12,L,4,A,0,"https://www.we-cheers.com/airport/devices/copy/' + device_mac + '"\r\n' + \
+        'TEXT 200,90,"1",270,1,1,"' +"MAC"+ '"\r\n' + \
+        'TEXT 220,138,"1",270,1,1,"' + device_mac + '"\r\n' + \
+        'PRINT 1\r\n'
+
+        client.send(str.encode())
+        client.close()
+        print("Print QR Code successfully")
+    except:
+        print("Failed to connect printer")

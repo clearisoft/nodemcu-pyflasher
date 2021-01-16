@@ -2276,6 +2276,7 @@ def read_mac(esp, args):
     def print_mac(label, mac):
         print('%s: %s' % (label, ':'.join(map(lambda x: '%02x' % x, mac))))
     print_mac("MAC", mac)
+    return mac
 
 
 def chip_id(esp, args):
@@ -2627,6 +2628,7 @@ def main(custom_commandline=None):
     else:
         operation_args = inspect.getfullargspec(operation_func).args
 
+    mac = 'unknown'
     if operation_args[0] == 'esp':  # operation function takes an ESPLoader connection object
         if args.before != "no_reset_no_sync":
             initial_baud = min(ESPLoader.ESP_ROM_BAUD, args.baud)  # don't sync faster than the default baud rate
@@ -2664,7 +2666,7 @@ def main(custom_commandline=None):
 
         print("Features: %s" % ", ".join(esp.get_chip_features()))
 
-        read_mac(esp, args)
+        mac = read_mac(esp, args)
 
         if not args.no_stub:
             esp = esp.run_stub()
@@ -2723,6 +2725,7 @@ def main(custom_commandline=None):
 
     else:
         operation_func(args)
+    return mac
 
 
 def expand_file_arguments():
